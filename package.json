@@ -1,0 +1,23 @@
+{
+    "name": "react-use-scroll-snap",
+    "description": "A react hook for javascript scroll snapping with touch, mouse, and keyboard events.",
+    "version": "0.0.1",
+    "license": "MIT",
+    "author": "Kazi Jawad",
+    "main": "index.js",
+    "types": "index.d.ts",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/kazijawad/react-use-scroll-snap.git"
+    },
+    "bugs": {
+        "url": "https://github.com/kazijawad/react-use-scroll-snap/issues"
+    },
+    "homepage": "https://github.com/kazijawad/react-use-scroll-snap#readme",
+    "devDependencies": {
+        "react": "^17.0.1"
+    },
+    "peerDependencies": {
+        "react": ">=16.8.1"
+    }
+}
