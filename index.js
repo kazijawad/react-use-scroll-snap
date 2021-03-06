@@ -1,72 +1,160 @@
 import { useRef, useState, useEffect } from 'react';
+import Tweezer from 'tweezer.js';
 
-function useScrollSnap() {
-    const containerRef = useRef(null);
+function useScrollSnap({ duration = 100, delay = 50 }) {
     const scrollRef = useRef(null);
+    const isActiveInteractionRef = useRef(null);
+    const scrollTimeoutRef = useRef(null);
+    const currentScrollOffsetRef = useRef(null);
+    const targetScrollOffsetRef = useRef(null);
+    const animationRef = useRef(null);
     const [scrollIndex, setScrollIndex] = useState(0);
 
-    useEffect(() => {
-        if (containerRef && scrollRef) {
-            let scrollTimer = -1;
+    const tickAnimation = useCallback((value) => {
+        const scrollTopDelta = targetScrollOffsetRef.current - currentScrollOffsetRef.current;
+        const scrollTop = currentScrollOffsetRef.current + (scrollTopDelta * value / 10000);
+        window.scrollTo({
+            top: scrollTop,
+            behavior: 'smooth',
+        });
+    }, []);
 
-            const slides = scrollRef.current.children;
-            let currentSlide = 0;
-            setScrollIndex(currentSlide);
+    const resetAnimation = useCallback(() => {
+        currentScrollOffsetRef.current = window.pageYOffset;
+        targetScrollOffsetRef.current = 0;
+        animationRef.current = null;
+    }, []);
 
-            const bottomReached = (elem) => {
-                const rect = elem.getBoundingClientRect();
-                return rect.bottom <= window.innerHeight;
+    const endAnimation = useCallback(() => {
+        if (!animationRef.current) return;
+        animationRef.current.stop();
+        resetAnimation();
+    }, [resetAnimation]);
+
+    // Modified from https://stackoverflow.com/a/125106
+    const getElementsInView = useCallback(() => {
+        const elements = [].slice.call(scrollRef.current.children); // Need to convert HTMLCollection to native JS Array
+        return elements.filter((element) => {
+            let top = element.offsetTop;
+            const height = element.offsetHeight;
+            while (element.offsetParent) {
+                element = element.offsetParent;
+                top += element.offsetTop;
             }
+            return top < (window.pageYOffset + window.innerHeight) && (top + height) > window.pageYOffset;
+        });
+    }, []);
 
-            const topReached = (elem) => {
-                const rect = elem.getBoundingClientRect();
-                return rect.top >= 0;
-            };
-
-            const isScrolledIntoView = (elem) => {
-                const rect = elem.getBoundingClientRect();
-                const elemTop = rect.top;
-                const elemBottom = rect.bottom;
-            
-                // Only completely visible elements return true:
-                // const isVisible = (elemTop >= 0) && (elemBottom <= window.innerHeight);
-                // Partially visible elements return true:
-                const isVisible = elemTop < window.innerHeight && elemBottom >= 0;
-                return isVisible;
-            };
-
-            const eventListener = (event) => {
-                if (scrollTimer != -1) clearTimeout(scrollTimer);
-                scrollTimer = window.setTimeout(() => {
-                    if (event.deltaY > 0) {
-                        if ((currentSlide + 1 >= slides.length) ||
-                            !bottomReached(slides[currentSlide]) ||
-                            !isScrolledIntoView(containerRef.current)) return;
-                        currentSlide++;
-                    } else {
-                        if ((currentSlide - 1 < 0) || !topReached(slides[currentSlide])) return;
-                        currentSlide--;
-                    }
-        
-                    event.preventDefault();
-                    const slide = slides[currentSlide];
-                    const slideOffset = window.pageYOffset + slide.getBoundingClientRect().top;
-                    window.scrollTo({
-                        top: slideOffset,
-                        behavior: 'smooth',
-                    });
-                    setScrollIndex(currentSlide);
-                }, 200);
-            };
-
-            document.addEventListener('wheel', eventListener);
-            return () => {
-                document.removeEventListener('wheel', eventListener);
-            };
+    const getTargetScrollOffset = useCallback((element) => {
+        let top = element.offsetTop;
+        while (element.offsetParent) {
+            element = element.offsetParent;
+            top += element.offsetTop;
         }
-    }, [containerRef, scrollRef]);
+        return top;
+    }, []);
 
-    return { containerRef, scrollRef, scrollIndex };
+    const snapToTarget = useCallback((target) => {
+        if (animationRef.current) {
+            animationRef.current.stop();
+        }
+
+        const elements = [].slice.call(scrollRef.current.children);
+        elements.forEach((element, index) => {
+            if (element.isSameNode(target)) {
+                setScrollIndex(index);
+            }
+        });
+
+        targetScrollOffsetRef.current = getTargetScrollOffset(target);
+        animationRef.current = new Tweezer({
+            start: 0,
+            end: 10000,
+            duration: duration,
+        });
+
+        animationRef.current.on('tick', tickAnimation);
+        animationRef.current.on('done', resetAnimation);
+
+        animationRef.current.begin();
+    }, [getTargetScrollOffset, tickAnimation, resetAnimation]);
+
+    const findSnapTarget = useCallback(() => {
+        const deltaY = window.pageYOffset - currentScrollOffsetRef.current;
+        currentScrollOffsetRef.current = window.pageYOffset;
+
+        const elementsInView = getElementsInView();
+        if (!elementsInView || elementsInView.length < 2) return;
+
+        if (deltaY > 0) {
+            snapToTarget(elementsInView[1]);
+        } else {
+            snapToTarget(elementsInView[0]);
+        }
+    }, [getElementsInView, snapToTarget]);
+
+    const onInteractionStart = useCallback(() => {
+        endAnimation();
+        isActiveInteractionRef.current = true;
+    }, [endAnimation]);
+
+    const onInteractionEnd = useCallback(() => {
+        isActiveInteractionRef.current = false;
+        findSnapTarget();
+    }, [findSnapTarget]);
+
+    const onScroll = useCallback(() => {
+        if (scrollTimeoutRef) clearTimeout(scrollTimeoutRef.current);
+        if (isActiveInteractionRef.current || animationRef.current) return;
+
+        scrollTimeoutRef.current = setTimeout(findSnapTarget, delay);
+    }, [findSnapTarget]);
+
+    const onInteraction = useCallback(() => {
+        endAnimation();
+        onScroll();
+    }, [endAnimation, onScroll]);
+
+    useEffect(() => {
+        if (scrollRef) {
+            resetAnimation();
+
+            document.addEventListener('keydown', onInteractionStart, { passive: true });
+            document.addEventListener('keyup', onInteractionEnd, { passive: true });
+            document.addEventListener('mousedown', onInteractionStart, { passive: true });
+            document.addEventListener('mouseup', onInteractionEnd, { passive: true });
+            document.addEventListener('touchstart', onInteractionStart, { passive: true });
+            document.addEventListener('touchend', onInteractionEnd, { passive: true });
+            document.addEventListener('scroll', onScroll, { passive: true });
+            document.addEventListener('wheel', onInteraction, { passive: true });
+
+            findSnapTarget();
+
+            return () => {
+                endAnimation();
+
+                document.removeEventListener('keydown', onInteractionStart, { passive: true });
+                document.removeEventListener('keyup', onInteractionEnd, { passive: true });
+                document.removeEventListener('mousedown', onInteractionStart, { passive: true });
+                document.removeEventListener('mouseup', onInteractionEnd, { passive: true });
+                document.removeEventListener('touchstart', onInteractionStart, { passive: true });
+                document.removeEventListener('touchend', onInteractionEnd, { passive: true });
+                document.removeEventListener('scroll', onScroll, { passive: true });
+                document.removeEventListener('wheel', onInteraction, { passive: true });
+            }
+        }
+    }, [
+        scrollRef,
+        resetAnimation,
+        findSnapTarget,
+        endAnimation,
+        onInteractionStart,
+        onInteractionEnd,
+        onScroll,
+        onInteraction
+    ]);
+
+    return { scrollRef, scrollIndex };
 }
 
 export default useScrollSnap;
