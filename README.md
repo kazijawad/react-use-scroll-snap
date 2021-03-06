@@ -16,7 +16,8 @@ yarn add react-use-scroll-snap
 import useScrollSnap from 'react-use-scroll-snap';
 
 function Component() {
-    const { scrollRef, scrollIndex } = useScrollSnap({ duration: 500, delay: 200 });
+    const scrollRef = useRef(null);
+    useScrollSnap({ ref: scrollRef, duration: 500, delay: 200 });
 
     return (
         <section ref={scrollRef}>
@@ -30,21 +31,19 @@ function Component() {
 
 ## Documentation
 
-This hook uses JavaScript objects to handle the parameters and return value.
-
 ### Parameter Object
 
-| Parameter   | Description                             |
-|-------------|-----------------------------------------|
-| `duration`  | The snap animation time in miliseconds. |
-| `delay`     | The snap delay time in miliseconds.     |
+This hook uses JavaScript objects to handle the parameters.
 
-### Return Value Object
+| Parameter   | Description                                   |
+|-------------|-----------------------------------------------|
+| `ref`       | The React ref that attaches to the container. |
+| `duration`  | The snap animation time in miliseconds.       |
+| `delay`     | The snap delay time in miliseconds.           |
 
-| Parameter     | Description                                                       |
-|---------------|-------------------------------------------------------------------|
-| `scrollRef`   | The React ref that needs to be attached to the container element. |
-| `scrollIndex` | The index of the child element that the snap is currently on.     |
+### Return Value
+
+`scrollIndex`: The index of the child element that the snap is currently on.
 
 ## Author
 

@@ -1,8 +1,7 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import Tweezer from 'tweezer.js';
 
-function useScrollSnap({ duration = 100, delay = 50 }) {
-    const scrollRef = useRef(null);
+function useScrollSnap({ ref = null, duration = 100, delay = 50 }) {
     const isActiveInteractionRef = useRef(null);
     const scrollTimeoutRef = useRef(null);
     const currentScrollOffsetRef = useRef(null);
@@ -33,7 +32,7 @@ function useScrollSnap({ duration = 100, delay = 50 }) {
 
     // Modified from https://stackoverflow.com/a/125106
     const getElementsInView = useCallback(() => {
-        const elements = [].slice.call(scrollRef.current.children); // Need to convert HTMLCollection to native JS Array
+        const elements = [].slice.call(ref.current.children); // Need to convert HTMLCollection to native JS Array
         return elements.filter((element) => {
             let top = element.offsetTop;
             const height = element.offsetHeight;
@@ -43,7 +42,7 @@ function useScrollSnap({ duration = 100, delay = 50 }) {
             }
             return top < (window.pageYOffset + window.innerHeight) && (top + height) > window.pageYOffset;
         });
-    }, []);
+    }, [ref]);
 
     const getTargetScrollOffset = useCallback((element) => {
         let top = element.offsetTop;
@@ -59,7 +58,7 @@ function useScrollSnap({ duration = 100, delay = 50 }) {
             animationRef.current.stop();
         }
 
-        const elements = [].slice.call(scrollRef.current.children);
+        const elements = [].slice.call(ref.current.children);
         elements.forEach((element, index) => {
             if (element.isSameNode(target)) {
                 setScrollIndex(index);
@@ -77,7 +76,7 @@ function useScrollSnap({ duration = 100, delay = 50 }) {
         animationRef.current.on('done', resetAnimation);
 
         animationRef.current.begin();
-    }, [getTargetScrollOffset, tickAnimation, resetAnimation]);
+    }, [ref, duration, getTargetScrollOffset, tickAnimation, resetAnimation]);
 
     const findSnapTarget = useCallback(() => {
         const deltaY = window.pageYOffset - currentScrollOffsetRef.current;
@@ -108,7 +107,7 @@ function useScrollSnap({ duration = 100, delay = 50 }) {
         if (isActiveInteractionRef.current || animationRef.current) return;
 
         scrollTimeoutRef.current = setTimeout(findSnapTarget, delay);
-    }, [findSnapTarget]);
+    }, [delay, findSnapTarget]);
 
     const onInteraction = useCallback(() => {
         endAnimation();
@@ -116,7 +115,7 @@ function useScrollSnap({ duration = 100, delay = 50 }) {
     }, [endAnimation, onScroll]);
 
     useEffect(() => {
-        if (scrollRef) {
+        if (ref) {
             resetAnimation();
 
             document.addEventListener('keydown', onInteractionStart, { passive: true });
@@ -144,7 +143,7 @@ function useScrollSnap({ duration = 100, delay = 50 }) {
             }
         }
     }, [
-        scrollRef,
+        ref,
         resetAnimation,
         findSnapTarget,
         endAnimation,
@@ -154,7 +153,7 @@ function useScrollSnap({ duration = 100, delay = 50 }) {
         onInteraction
     ]);
 
-    return { scrollRef, scrollIndex };
+    return scrollIndex;
 }
 
 export default useScrollSnap;
