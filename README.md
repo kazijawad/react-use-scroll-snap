@@ -17,7 +17,7 @@ import useScrollSnap from 'react-use-scroll-snap';
 
 function Component() {
     const scrollRef = useRef(null);
-    useScrollSnap({ ref: scrollRef, duration: 500, delay: 200 });
+    useScrollSnap({ ref: scrollRef, duration: 100, delay: 50 });
 
     return (
         <section ref={scrollRef}>
