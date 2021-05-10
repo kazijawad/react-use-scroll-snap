@@ -12,10 +12,7 @@ function useScrollSnap({ ref = null, duration = 100, delay = 50 }) {
     const tickAnimation = useCallback((value) => {
         const scrollTopDelta = targetScrollOffsetRef.current - currentScrollOffsetRef.current;
         const scrollTop = currentScrollOffsetRef.current + (scrollTopDelta * value / 10000);
-        window.scrollTo({
-            top: scrollTop,
-            behavior: 'smooth',
-        });
+        window.scrollTo({ top: scrollTop, behavior: 'smooth' });
     }, []);
 
     const resetAnimation = useCallback(() => {
@@ -102,17 +99,13 @@ function useScrollSnap({ ref = null, duration = 100, delay = 50 }) {
         findSnapTarget();
     }, [findSnapTarget]);
 
-    const onScroll = useCallback(() => {
+    const onInteraction = useCallback(() => {
+        endAnimation();
         if (scrollTimeoutRef) clearTimeout(scrollTimeoutRef.current);
         if (isActiveInteractionRef.current || animationRef.current) return;
 
-        scrollTimeoutRef.current = setTimeout(findSnapTarget, delay);
-    }, [delay, findSnapTarget]);
-
-    const onInteraction = useCallback(() => {
-        endAnimation();
-        onScroll();
-    }, [endAnimation, onScroll]);
+        scrollTimeoutRef.current = setTimeout(findSnapTarget, 500);
+    }, [endAnimation, findSnapTarget]);
 
     useEffect(() => {
         if (ref) {
@@ -120,11 +113,8 @@ function useScrollSnap({ ref = null, duration = 100, delay = 50 }) {
 
             document.addEventListener('keydown', onInteractionStart, { passive: true });
             document.addEventListener('keyup', onInteractionEnd, { passive: true });
-            document.addEventListener('mousedown', onInteractionStart, { passive: true });
-            document.addEventListener('mouseup', onInteractionEnd, { passive: true });
             document.addEventListener('touchstart', onInteractionStart, { passive: true });
             document.addEventListener('touchend', onInteractionEnd, { passive: true });
-            document.addEventListener('scroll', onScroll, { passive: true });
             document.addEventListener('wheel', onInteraction, { passive: true });
 
             findSnapTarget();
@@ -134,11 +124,8 @@ function useScrollSnap({ ref = null, duration = 100, delay = 50 }) {
 
                 document.removeEventListener('keydown', onInteractionStart, { passive: true });
                 document.removeEventListener('keyup', onInteractionEnd, { passive: true });
-                document.removeEventListener('mousedown', onInteractionStart, { passive: true });
-                document.removeEventListener('mouseup', onInteractionEnd, { passive: true });
                 document.removeEventListener('touchstart', onInteractionStart, { passive: true });
                 document.removeEventListener('touchend', onInteractionEnd, { passive: true });
-                document.removeEventListener('scroll', onScroll, { passive: true });
                 document.removeEventListener('wheel', onInteraction, { passive: true });
             }
         }
@@ -149,7 +136,6 @@ function useScrollSnap({ ref = null, duration = 100, delay = 50 }) {
         endAnimation,
         onInteractionStart,
         onInteractionEnd,
-        onScroll,
         onInteraction
     ]);
 
