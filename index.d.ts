@@ -1,6 +1,6 @@
-declare function useScrollSnap(duration?: number, delay?: number): {
-    scrollRef: HTMLElement | null;
-    scrollIndex: number;
-}
-
-export = useScrollSnap;
+export default useScrollSnap;
+declare function useScrollSnap({ ref, duration, delay }: {
+    ref?: any;
+    duration?: number;
+    delay?: number;
+}): any;

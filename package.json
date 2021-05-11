@@ -15,7 +15,8 @@
     },
     "homepage": "https://github.com/kazijawad/react-use-scroll-snap#readme",
     "devDependencies": {
-        "react": "^17.0.1"
+        "react": "^17.0.1",
+        "typescript": "^4.2.4"
     },
     "peerDependencies": {
         "react": ">=16.8.1"
