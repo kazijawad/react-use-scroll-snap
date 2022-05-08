@@ -5,6 +5,7 @@
     "license": "MIT",
     "author": "Kazi Jawad",
     "main": "index.js",
+    "type": "module",
     "types": "index.d.ts",
     "repository": {
         "type": "git",
