@@ -22,8 +22,8 @@ function useScrollSnap({ ref = null, duration = 100, delay = 50 }) {
     }, []);
 
     const endAnimation = useCallback(() => {
-        if (!animationRef.current) return;
-        animationRef.current.stop();
+        if (animationRef.current)
+            animationRef.current.stop();
         resetAnimation();
     }, [resetAnimation]);
 
@@ -84,7 +84,7 @@ function useScrollSnap({ ref = null, duration = 100, delay = 50 }) {
 
         if (deltaY > 0) {
             snapToTarget(elementsInView[1]);
-        } else {
+        } else if (deltaY < 0) {
             snapToTarget(elementsInView[0]);
         }
     }, [getElementsInView, snapToTarget]);
@@ -111,22 +111,24 @@ function useScrollSnap({ ref = null, duration = 100, delay = 50 }) {
         if (ref) {
             resetAnimation();
 
-            document.addEventListener('keydown', onInteractionStart, { passive: true });
-            document.addEventListener('keyup', onInteractionEnd, { passive: true });
-            document.addEventListener('touchstart', onInteractionStart, { passive: true });
-            document.addEventListener('touchend', onInteractionEnd, { passive: true });
-            document.addEventListener('wheel', onInteraction, { passive: true });
+            document.addEventListener('keydown', onInteractionStart, {passive: true});
+            document.addEventListener('keyup', onInteractionEnd, {passive: true});
+            // document.addEventListener('touchstart', onInteractionStart, {passive: true});
+            // document.addEventListener('touchend', onInteractionEnd, {passive: true});
+            document.addEventListener('touchmove', onInteraction, {passive: true});
+            document.addEventListener('wheel', onInteraction, {passive: true});
 
             findSnapTarget();
 
             return () => {
                 endAnimation();
 
-                document.removeEventListener('keydown', onInteractionStart, { passive: true });
-                document.removeEventListener('keyup', onInteractionEnd, { passive: true });
-                document.removeEventListener('touchstart', onInteractionStart, { passive: true });
-                document.removeEventListener('touchend', onInteractionEnd, { passive: true });
-                document.removeEventListener('wheel', onInteraction, { passive: true });
+                document.removeEventListener('keydown', onInteractionStart, {passive: true});
+                document.removeEventListener('keyup', onInteractionEnd, {passive: true});
+                // document.removeEventListener('touchstart', onInteractionStart, {passive: true});
+                // document.removeEventListener('touchend', onInteractionEnd, {passive: true});
+                document.removeEventListener('touchmove', onInteraction, {passive: true});
+                document.removeEventListener('wheel', onInteraction, {passive: true});
             }
         }
     }, [
