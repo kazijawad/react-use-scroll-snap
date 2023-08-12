@@ -1,7 +1,20 @@
 {
     "compilerOptions": {
-        "allowJs": true,
+        "target": "ES6",
+        "lib": [
+            "ESNext",
+            "DOM"
+        ],
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "isolatedModules": true,
+        "jsx": "react-jsx",
+        "strict": true,
         "declaration": true,
-        "emitDeclarationOnly": true
-    }
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "noFallthroughCasesInSwitch": true,
+        "outDir": "dist"
+    },
+    "include": ["src"]
 }

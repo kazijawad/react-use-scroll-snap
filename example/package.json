@@ -1,0 +1,25 @@
+{
+    "name": "example",
+    "author": "Kazi Jawad",
+    "license": "UNLICENSED",
+    "main": "index.js",
+    "scripts": {
+        "dev": "vite --port 3000",
+        "build": "vite build",
+        "preview": "vite preview"
+    },
+    "dependencies": {
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0",
+        "react-use-scroll-snap": "file:..",
+        "styled-components": "^6.0.7"
+    },
+    "devDependencies": {
+        "@types/react": "^18.2.20",
+        "@types/react-dom": "^18.2.7",
+        "@types/styled-components": "^5.1.26",
+        "@vitejs/plugin-react": "^4.0.4",
+        "typescript": "^5.1.6",
+        "vite": "^4.4.9"
+    }
+}
