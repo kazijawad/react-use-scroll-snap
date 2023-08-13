@@ -1,10 +1,18 @@
 import { useRef, useState, useEffect } from 'react'
 import Tweezer from 'tweezer.js'
 
+enum Direction {
+    Up,
+    Down,
+    None,
+}
+
 interface ScrollState {
     currentOffset: number;
     targetOffset: number;
     timeoutID: number;
+    direction: Direction;
+    directionStart: number;
     animation: Tweezer | null;
 }
 
@@ -23,6 +31,8 @@ function useScrollSnap({
         currentOffset: 0,
         targetOffset: 0,
         timeoutID: 0,
+        direction: Direction.None,
+        directionStart: 0,
         animation: null
     })
 
@@ -53,18 +63,17 @@ function useScrollSnap({
     }
 
     const findSnapTarget = () => {
-        const deltaY = window.pageYOffset - dataRef.current.currentOffset
-        dataRef.current.currentOffset = window.pageYOffset
+        if (dataRef.current.direction === Direction.None) return
 
         const elementsInView = getElementsInView()
-        if (!elementsInView || elementsInView.length < 2) {
-            return
-        }
+        if (elementsInView.length < 1) return
 
-        if (deltaY > 0) {
-            snapToTarget(elementsInView[1])
-        } else {
+        dataRef.current.currentOffset = window.pageYOffset
+
+        if (dataRef.current.direction === Direction.Up) {
             snapToTarget(elementsInView[0])
+        } else if (dataRef.current.direction === Direction.Down) {
+            snapToTarget(elementsInView[elementsInView.length - 1])
         }
     }
 
@@ -113,30 +122,64 @@ function useScrollSnap({
             currentOffset: 0,
             targetOffset: 0,
             timeoutID: 0,
+            direction: Direction.None,
+            directionStart: 0,
             animation: null,
         }
     }
 
     const handleInteraction = () => {
+        dataRef.current.timeoutID = setTimeout(findSnapTarget, delay)
+    }
+
+    const handleWheel = (event: WheelEvent) => {
         clearAnimation()
 
-        dataRef.current.timeoutID = setTimeout(findSnapTarget, delay)
+        if (event.deltaY < 0) {
+            dataRef.current.direction = Direction.Up
+        } else if (event.deltaY > 0) {
+            dataRef.current.direction = Direction.Down
+        } else {
+            dataRef.current.direction = Direction.None
+        }
+
+        handleInteraction()
+    }
+
+    const handleTouchStart = (event: TouchEvent) => {
+        dataRef.current.directionStart = event.touches[0].clientY
+    }
+
+    const handleTouchMove = (event: TouchEvent) => {
+        const deltaY = event.touches[0].clientY - dataRef.current.directionStart
+
+        if (deltaY < 0) {
+            dataRef.current.direction = Direction.Up
+        } else if (deltaY > 0) {
+            dataRef.current.direction = Direction.Down
+        } else {
+            dataRef.current.direction = Direction.None
+        }
+
+        handleInteraction()
     }
 
     useEffect(() => {
         if (elementRef) {
             clearAnimation()
 
-            document.addEventListener('wheel', handleInteraction, { passive: true })
-            document.addEventListener('touchmove', handleInteraction, { passive: true })
+            document.addEventListener('wheel', handleWheel, { passive: true })
+            document.addEventListener('touchstart', handleTouchStart, { passive: true })
+            document.addEventListener('touchmove', handleTouchMove, { passive: true })
 
             findSnapTarget()
 
             return () => {
                 clearAnimation()
 
-                document.removeEventListener('wheel', handleInteraction)
-                document.removeEventListener('touchmove', handleInteraction)
+                document.removeEventListener('wheel', handleWheel)
+                document.removeEventListener('touchstart', handleTouchStart)
+                document.removeEventListener('touchmove', handleTouchMove)
             }
         }
     }, [elementRef])
