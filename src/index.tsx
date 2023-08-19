@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useEffect } from 'react'
 import Tweezer from 'tweezer.js'
 
 enum Direction {
@@ -8,6 +8,7 @@ enum Direction {
 }
 
 interface ScrollState {
+    currentIndex: number,
     currentOffset: number;
     targetOffset: number;
     timeoutID: number;
@@ -16,18 +17,28 @@ interface ScrollState {
     animation: Tweezer | null;
 }
 
-interface useScrollSnapProps {
+interface UseScrollSnapProps {
     ref: React.RefObject<HTMLElement>;
-    duration: number;
-    delay: number;
+    duration?: number;
+    isArrowKeysEnabled?: boolean;
+    isDirectionEnabled?: boolean;
 }
+
+interface UseScrollSnapReturn {
+    state: React.RefObject<ScrollState>;
+    goto: (index: number) => void;
+}
+
+const INTERACTION_TIMEOUT = 150
 
 function useScrollSnap({
     ref: elementRef,
     duration = 100,
-    delay = 0,
-}: useScrollSnapProps): number {
+    isArrowKeysEnabled = true,
+    isDirectionEnabled = true,
+}: UseScrollSnapProps): UseScrollSnapReturn {
     const dataRef = useRef<ScrollState>({
+        currentIndex: 0,
         currentOffset: 0,
         targetOffset: 0,
         timeoutID: 0,
@@ -35,8 +46,6 @@ function useScrollSnap({
         directionStart: 0,
         animation: null
     })
-
-    const [currentIndex, setCurrentIndex] = useState(0)
 
     const getTargetScrollOffset = (element: HTMLElement) => {
         let top = element.offsetTop
@@ -47,33 +56,73 @@ function useScrollSnap({
         return top
     }
 
+    const getChildElements = () => {
+        if (elementRef.current && elementRef.current.children.length > 0) {
+            return Array.from(elementRef.current.children) as Array<HTMLElement>
+        } else {
+            return []
+        }
+    }
+
     // Modified from https://stackoverflow.com/a/125106
     const getElementsInView = () => {
-        const elements = Array.from(elementRef.current!.children) as Array<HTMLElement>
-
-        return elements.filter((element) => {
-            let top = element.offsetTop
+        return getChildElements().filter((element) => {
             const height = element.offsetHeight
+            let top = element.offsetTop
             while (element.offsetParent) {
                 element = element.offsetParent as HTMLElement
                 top += element.offsetTop
             }
-            return top < (window.pageYOffset + window.innerHeight) && (top + height) > window.pageYOffset
+            return top < (window.scrollY + window.innerHeight) && (top + height) > window.scrollY
         })
     }
 
-    const findSnapTarget = () => {
-        if (dataRef.current.direction === Direction.None) return
+    const getElementViewportHeight = (element: HTMLElement) => {
+        const viewportHeight = window.innerHeight
 
+        const rect = element.getBoundingClientRect()
+
+        let elementY
+        if (rect.top < 0) {
+            elementY = rect.bottom
+        } else if (rect.bottom > viewportHeight) {
+            elementY = viewportHeight - rect.top
+        } else {
+            elementY = rect.bottom - rect.top
+        }
+
+        return elementY
+    }
+
+    const findSnapTarget = () => {
         const elementsInView = getElementsInView()
         if (elementsInView.length < 1) return
 
-        dataRef.current.currentOffset = window.pageYOffset
+        dataRef.current.currentOffset = window.scrollY
 
-        if (dataRef.current.direction === Direction.Up) {
-            snapToTarget(elementsInView[0])
-        } else if (dataRef.current.direction === Direction.Down) {
-            snapToTarget(elementsInView[elementsInView.length - 1])
+        if (isDirectionEnabled) {
+            if (dataRef.current.direction === Direction.Up) {
+                snapToTarget(elementsInView[0])
+                return
+            } else if (dataRef.current.direction === Direction.Down) {
+                snapToTarget(elementsInView[elementsInView.length - 1])
+                return
+            }
+        }
+
+        let largestElement
+        let largestHeight = -1
+
+        for (const element of elementsInView) {
+            const elementHeight = getElementViewportHeight(element)
+            if (elementHeight > largestHeight) {
+                largestElement = element
+                largestHeight = elementHeight
+            }
+        }
+
+        if (largestElement) {
+            snapToTarget(largestElement)
         }
     }
 
@@ -82,11 +131,11 @@ function useScrollSnap({
             dataRef.current.animation.stop()
         }
 
-        const elements = Array.from(elementRef.current!.children)
+        const elements = getChildElements()
         for (let i = 0; i < elements.length; ++i) {
             const element = elements[i]
             if (element.isSameNode(target)) {
-                setCurrentIndex(i)
+                dataRef.current.currentIndex = i
             }
         }
 
@@ -119,6 +168,7 @@ function useScrollSnap({
         }
 
         dataRef.current = {
+            currentIndex: dataRef.current.currentIndex,
             currentOffset: 0,
             targetOffset: 0,
             timeoutID: 0,
@@ -129,7 +179,7 @@ function useScrollSnap({
     }
 
     const handleInteraction = () => {
-        dataRef.current.timeoutID = setTimeout(findSnapTarget, delay)
+        dataRef.current.timeoutID = setTimeout(findSnapTarget, INTERACTION_TIMEOUT)
     }
 
     const handleWheel = (event: WheelEvent) => {
@@ -153,38 +203,80 @@ function useScrollSnap({
     const handleTouchMove = (event: TouchEvent) => {
         const deltaY = event.touches[0].clientY - dataRef.current.directionStart
 
-        if (deltaY < 0) {
+        if (deltaY > 0) {
             dataRef.current.direction = Direction.Up
-        } else if (deltaY > 0) {
-            dataRef.current.direction = Direction.Down
         } else {
-            dataRef.current.direction = Direction.None
+            dataRef.current.direction = Direction.Down
         }
 
         handleInteraction()
     }
 
-    useEffect(() => {
-        if (elementRef) {
+    const handleKeyDown = (event: KeyboardEvent) => {
+        const currentIndex = dataRef.current.currentIndex
+
+        if (event.code === 'ArrowUp' && currentIndex > 0) {
+            event.preventDefault()
+
+            const elements = getChildElements()
+            const element = elements[currentIndex - 1]
+
             clearAnimation()
+            snapToTarget(element)
+        } else if (event.code === 'ArrowDown') {
+            const elements = getChildElements()
 
-            document.addEventListener('wheel', handleWheel, { passive: true })
-            document.addEventListener('touchstart', handleTouchStart, { passive: true })
-            document.addEventListener('touchmove', handleTouchMove, { passive: true })
+            if (currentIndex < elements.length - 1) {
+                event.preventDefault()
 
-            findSnapTarget()
+                const element = elements[currentIndex + 1]
 
-            return () => {
                 clearAnimation()
-
-                document.removeEventListener('wheel', handleWheel)
-                document.removeEventListener('touchstart', handleTouchStart)
-                document.removeEventListener('touchmove', handleTouchMove)
+                snapToTarget(element)
             }
         }
-    }, [elementRef])
+    }
 
-    return currentIndex
+    const goto = (index: number) => {
+        const elements = getChildElements()
+        const element = elements[index]
+
+        if (element) {
+            clearAnimation()
+            snapToTarget(element)
+        }
+    }
+
+    useEffect(() => {
+        clearAnimation()
+
+        document.addEventListener('wheel', handleWheel, { passive: true })
+        document.addEventListener('touchstart', handleTouchStart, { passive: true })
+        document.addEventListener('touchmove', handleTouchMove, { passive: true })
+
+        if (isArrowKeysEnabled) {
+            document.addEventListener('keydown', handleKeyDown)
+        }
+
+        findSnapTarget()
+
+        return () => {
+            clearAnimation()
+
+            document.removeEventListener('wheel', handleWheel)
+            document.removeEventListener('touchstart', handleTouchStart)
+            document.removeEventListener('touchmove', handleTouchMove)
+
+            if (isArrowKeysEnabled) {
+                document.removeEventListener('keydown', handleKeyDown)
+            }
+        }
+    }, [])
+
+    return {
+        state: dataRef,
+        goto
+    }
 }
 
 export default useScrollSnap
